@@ -1,0 +1,7 @@
+moabb
+mne
+numpy
+scipy
+scikit-learn
+joblib
+gpiozero
