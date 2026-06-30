@@ -1,6 +1,3 @@
- #Trains the best current NeuroGPIO model:
-# Filter Bank CSP + LDA.
-
 # Compares plain Filter Bank CSP vs Filter Bank CSP + feature selection.
 #
 # Both pipelines use the same cross-validation splits.
