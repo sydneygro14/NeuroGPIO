@@ -1,8 +1,6 @@
-# Tests Filter Bank CSP.
-#
-# Regular CSP uses one broad frequency band, like 8-30 Hz.
-# Filter Bank CSP splits EEG into smaller bands, runs CSP on each band,
-# then combines all those features before classification.
+# Tests feature selection after Filter Bank CSP.
+
+# Tested Filter Bank CSP plus SelectKBest. This found the better cross-validation result: #
 
 from moabb.datasets import BNCI2014_001
 from moabb.paradigms import FilterBankMotorImagery
@@ -10,8 +8,8 @@ from moabb.pipelines import FilterBank
 
 from mne.decoding import CSP
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import make_pipeline
 
 
@@ -43,57 +41,59 @@ def load_filterbank_data():
     return X, y, metadata
 
 
-def run_experiment(n_components: int):
+def run_experiment(k_features: int):
     X, y, metadata = load_filterbank_data()
-
-    print("X shape:", X.shape)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.25,
-        random_state=42,
-        stratify=y,
-    )
 
     model = make_pipeline(
         FilterBank(
             CSP(
-                n_components=n_components,
+                n_components=6,
                 reg=None,
                 log=True,
                 norm_trace=False,
             )
         ),
+        SelectKBest(
+            score_func=mutual_info_classif,
+            k=k_features,
+        ),
         LinearDiscriminantAnalysis(),
     )
 
-    model.fit(X_train, y_train)
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42,
+    )
 
-    y_pred = model.predict(X_test)
+    scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
 
-    return accuracy_score(y_test, y_pred)
+    return scores.mean(), scores.std()
 
 
 def main():
-    component_options = [2, 4, 6]
+    k_options = [8, 12, 16, 20, 24, 30, 36]
 
     results = []
 
-    for n_components in component_options:
-        accuracy = run_experiment(n_components)
+    for k_features in k_options:
+        mean_accuracy, std_accuracy = run_experiment(k_features)
 
         row = {
-            "filter_banks": FILTER_BANKS,
-            "csp_components_per_band": n_components,
-            "accuracy": accuracy,
+            "k_features": k_features,
+            "mean_accuracy": mean_accuracy,
+            "std_accuracy": std_accuracy,
         }
 
         results.append(row)
 
         print("Finished:", row)
 
-    results = sorted(results, key=lambda row: row["accuracy"], reverse=True)
+    results = sorted(
+        results,
+        key=lambda row: row["mean_accuracy"],
+        reverse=True,
+    )
 
     print("\nRanked results:")
     for row in results:

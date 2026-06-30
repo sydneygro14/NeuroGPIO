@@ -12,7 +12,7 @@ from sklearn.pipeline import make_pipeline
 
 
 
-from load_data import load_subject
+from data.load_data import load_subject
 
 
 MODEL_PATH = Path("models/motor_model.pkl")

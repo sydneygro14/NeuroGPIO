@@ -8,7 +8,7 @@ import joblib
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 
-from load_data import load_subject
+from data.load_data import load_subject
 
 
 MODEL_PATH = Path("models/motor_model.pkl")

@@ -9,7 +9,7 @@ import numpy as np
 from scipy.signal import welch
 
 # Import our data loader.
-from load_data import load_subject
+from data.load_data import load_subject
 
 
 # Sampling rate for BCI Competition IV 2a is 250 Hz.

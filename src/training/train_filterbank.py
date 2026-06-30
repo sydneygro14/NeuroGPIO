@@ -4,7 +4,7 @@
 from pathlib import Path
 from pickle import TRUE
 
-from experiments.filterbank_experiment import FILTER_BANKS, MOTOR_IMAGERY_CLASSES
+from experiments.archive.filterbank_experiment import FILTER_BANKS, MOTOR_IMAGERY_CLASSES
 import joblib
 from moabb.datasets import BNCI2014_001
 from moabb.paradigms import FilterBankMotorImagery
@@ -15,6 +15,8 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 
+from functools import partial
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 
 MODEL_PATH = Path("models/filterbank_motor_model.pkl")
 
@@ -37,15 +39,20 @@ def load_filterbank_data():
 def build_model():
 
     model = make_pipeline(
-        FilterBank(
-            CSP(
-                n_components = 6,
-                reg = None,
-                log = True,
-                norm_trace = False,
-            )
-        ), LinearDiscriminantAnalysis(),
-    )
+    FilterBank(
+        CSP(
+            n_components=6,
+            reg=None,
+            log=True,
+            norm_trace=False,
+        )
+    ),
+    SelectKBest(
+        score_func=partial(mutual_info_classif, random_state=42),
+        k=20,
+    ),
+    LinearDiscriminantAnalysis(),
+)
     return model
 
 def main():
