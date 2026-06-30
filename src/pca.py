@@ -20,7 +20,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 
-from train_filterbank import load_filterbank_data
+from training.train_filterbank import load_filterbank_data
 
 
 OUTPUT_PATH = Path("reports/pca_filterbank_features.png")
