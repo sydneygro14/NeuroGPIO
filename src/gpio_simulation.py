@@ -1,4 +1,4 @@
-# Simulated GPIO output for running NeuroGPIO on a Mac.
+# Simulated GPIO output for running NeuroGPIO on a Mac. (no pi connection yet)
 #
 # This file does not control real Raspberry Pi pins.
 # It only prints which LED would turn on.

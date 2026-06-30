@@ -1,4 +1,4 @@
-# Tests CSP regularization and log settings.
+# Tests CSP regularization and log settings. (goes through all combinations)
 
 from mne.decoding import CSP
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis

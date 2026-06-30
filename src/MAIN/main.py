@@ -32,19 +32,18 @@ from pathlib import Path
 import joblib
 from sklearn.model_selection import train_test_split
 
-from load_data import load_subject
+from train_filterbank import load_filterbank_data
 from gpio_simulation import show_prediction, all_leds_off
 
 
-MODEL_PATH = Path("models/motor_model.pkl")
-
+MODEL_PATH = Path("models/filterbank_motor_model.pkl") ## filterbank model path
 
 def main():
     # Load the trained model saved by train.py.
     model = joblib.load(MODEL_PATH)
 
     # Load data for subject 1.
-    X, y, metadata = load_subject(subject_id=1)
+    X, y, metadata = load_filterbank_data(subject_id=1)
 
     # Split data the same way as train.py.
     _, X_test, _, y_test = train_test_split(
