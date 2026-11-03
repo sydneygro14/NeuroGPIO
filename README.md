@@ -37,3 +37,19 @@ On a Raspberry Pi, GPIO output will activate the matching LED on the custom PCB.
 #############################################################################################
 
 
+
+###########################################################################################
+
+How to run (from the repo root):
+
+pip install -r requirements.txt
+
+Train the Filter Bank CSP + LDA model and save models/filterbank_motor_model.pkl:
+PYTHONPATH=src python src/training/train_filterbank.py
+
+Replay hidden test trials through the simulated GPIO output:
+PYTHONPATH=src python src/runtime/main.py
+
+Benchmark all 9 subjects (train on session 1, test on session 2, plus 5-fold CV per subject).
+Per-subject results are saved to reports/all_subjects_results.csv:
+PYTHONPATH=src python src/experiments/evaluate_all_subjects.py

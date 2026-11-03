@@ -1,11 +1,19 @@
- #Trains the best current NeuroGPIO model:
-# Filter Bank CSP + LDA.
-
-# Compares plain Filter Bank CSP vs Filter Bank CSP + feature selection.
+# Trains the best current NeuroGPIO model and saves it for runtime/main.py:
+# Filter Bank CSP + SelectKBest + LDA.
 #
-# Both pipelines use the same cross-validation splits.
+# Steps:
+# 1. Load subject 1 filter-bank EEG data.
+# 2. Report 5-fold cross-validation accuracy (all scaling/CSP/selection is fit inside each fold).
+# 3. Split 75% train / 25% hidden test, the same split runtime/main.py replays.
+# 4. Fit on the 75% train split only, score the hidden 25%, and save the model.
+#
+# Run from the repo root:
+#   PYTHONPATH=src python src/training/train_filterbank.py
 
 from functools import partial
+from pathlib import Path
+
+import joblib
 
 from moabb.datasets import BNCI2014_001
 from moabb.paradigms import FilterBankMotorImagery
@@ -14,9 +22,13 @@ from moabb.pipelines import FilterBank
 from mne.decoding import CSP
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.pipeline import make_pipeline
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MODEL_PATH = REPO_ROOT / "models" / "filterbank_motor_model.pkl"
 
 MOTOR_IMAGERY_CLASSES = ["left_hand", "right_hand", "feet", "tongue"]
 
@@ -30,10 +42,8 @@ FILTER_BANKS = [
 ]
 
 
-def load_filterbank_data():
-    dataset = BNCI2014_001()
-
-    paradigm = FilterBankMotorImagery(
+def get_paradigm():
+    return FilterBankMotorImagery(
         filters=FILTER_BANKS,
         events=MOTOR_IMAGERY_CLASSES,
         n_classes=4,
@@ -41,26 +51,19 @@ def load_filterbank_data():
         tmax=3.1,
     )
 
-    X, y, metadata = paradigm.get_data(dataset=dataset, subjects=[1])
+
+def load_filterbank_data(subject_id: int = 1):
+    # X shape: trials x channels x samples x filter bands
+    X, y, metadata = get_paradigm().get_data(
+        dataset=BNCI2014_001(),
+        subjects=[subject_id],
+    )
 
     return X, y, metadata
 
 
-def build_plain_filterbank_model():
-    return make_pipeline(
-        FilterBank(
-            CSP(
-                n_components=6,
-                reg=None,
-                log=True,
-                norm_trace=False,
-            )
-        ),
-        LinearDiscriminantAnalysis(),
-    )
-
-
-def build_feature_selection_model():
+def build_filterbank_model():
+    # Filter Bank CSP -> keep the 20 most informative features -> LDA
     return make_pipeline(
         FilterBank(
             CSP(
@@ -78,45 +81,42 @@ def build_feature_selection_model():
     )
 
 
-def print_results(name: str, scores):
-    print("\n", name)
-    print("Fold accuracies:", scores)
-    print("Mean accuracy:", scores.mean())
-    print("Standard deviation:", scores.std())
-
-
 def main():
-    X, y, metadata = load_filterbank_data()
+    X, y, metadata = load_filterbank_data(subject_id=1)
 
-    cv = StratifiedKFold(
-        n_splits=5,
-        shuffle=True,
+    print("X shape:", X.shape)
+    print("y shape:", y.shape)
+
+    # 5-fold cross-validation (within subject 1, sessions mixed)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv_scores = cross_val_score(build_filterbank_model(), X, y, cv=cv, scoring="accuracy")
+
+    print("\n5-fold CV accuracies:", cv_scores)
+    print("5-fold CV mean accuracy:", cv_scores.mean())
+    print("5-fold CV standard deviation:", cv_scores.std())
+
+    # Same split runtime/main.py uses, so the replayed trials are never seen in training.
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.25,
         random_state=42,
+        stratify=y,
     )
 
-    plain_scores = cross_val_score(
-        build_plain_filterbank_model(),
-        X,
-        y,
-        cv=cv,
-        scoring="accuracy",
-    )
+    model = build_filterbank_model()
+    model.fit(X_train, y_train)
 
-    feature_selection_scores = cross_val_score(
-        build_feature_selection_model(),
-        X,
-        y,
-        cv=cv,
-        scoring="accuracy",
-    )
+    y_pred = model.predict(X_test)
 
-    print_results("Plain Filter Bank CSP + LDA", plain_scores)
-    print_results("Filter Bank CSP + SelectKBest + LDA", feature_selection_scores)
+    print("\nHeld-out test accuracy:", accuracy_score(y_test, y_pred))
+    print("Classification report:")
+    print(classification_report(y_test, y_pred))
 
-    improvement = feature_selection_scores.mean() - plain_scores.mean()
+    MODEL_PATH.parent.mkdir(exist_ok=True)
+    joblib.dump(model, MODEL_PATH)
 
-    print("\nImprovement:")
-    print(improvement)
+    print("Saved trained model to:", MODEL_PATH)
 
 
 if __name__ == "__main__":
